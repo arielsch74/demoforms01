@@ -251,9 +251,6 @@ open http://localhost:8080/dev.html
 - ✅ Can test real SDK calls (uncomment auth code in src/index.tsx lines 110-126)
 - ✅ Optional backend - UI works without it, SDK needs backend running
 
-**Cons**:
-- 🐢 Slower than pure mock data approach
-
 ### Workflow 2: Runtime Testing (Production-like)
 
 **Use when**: SDK integration, process testing, final validation
