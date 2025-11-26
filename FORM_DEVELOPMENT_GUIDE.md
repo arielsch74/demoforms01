@@ -46,7 +46,7 @@ nano dev-credentials.js
 **Edit dev-credentials.js** with your actual credentials:
 ```javascript
 export const DEV_CREDENTIALS = {
-  username: 'your.email@company.com',
+  username: 'admin',  // Dashboard username (e.g., admin, user01, etc.)
   password: 'YourPassword',
   apiUrl: 'https://test.bizuit.com/{yourTenant}BizuitDashboardapi/api/'
 };
@@ -320,7 +320,7 @@ For local fat bundle testing, you need dev credentials in the form directory:
 
 ```javascript
 export const DEV_CREDENTIALS = {
-  username: 'your.email@company.com',
+  username: 'admin',  // Dashboard username (e.g., admin, user01, etc.)
   password: 'YourDashboardPassword',
   apiUrl: 'https://test.bizuit.com/{yourTenant}BizuitDashboardapi/api/'
   //                                  ^^^^^^^^^^
