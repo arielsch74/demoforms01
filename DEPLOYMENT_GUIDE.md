@@ -9,13 +9,13 @@ Pasos completos para deployar custom forms a entornos Bizuit BPM (clientX, clien
 ```
 test.bizuit.com/
 ├── clientXBIZUITCustomForms/
-│   ├── Runtime App (Next.js)   → Puerto 3001, IIS Reverse Proxy
-│   ├── Backend API (FastAPI)   → Puerto 8000, IIS Reverse Proxy
+│   ├── Runtime App (Next.js)   → Puerto 3001, PM2 + IIS Reverse Proxy
+│   ├── Backend API (.NET 9)    → IIS Virtual App (In-Process)
 │   └── Forms Storage           → /public/forms/{form-name}/form.js
 │
 └── clientYBIZUITCustomForms/
-    ├── Runtime App (Next.js)   → Puerto 3002, IIS Reverse Proxy
-    ├── Backend API (FastAPI)   → Puerto 8001, IIS Reverse Proxy
+    ├── Runtime App (Next.js)   → Puerto 3002, PM2 + IIS Reverse Proxy
+    ├── Backend API (.NET 9)    → IIS Virtual App (In-Process)
     └── Forms Storage           → /public/forms/{form-name}/form.js
 ```
 
@@ -267,7 +267,7 @@ CREATE DATABASE clientXBizuitPersistenceStore;
 ```bash
 # Windows Server
 E:\BIZUITSites\clientX\
-├── clientXBIZUITCustomForms\           # Runtime App
+├── clientXBIZUITCustomForms\           # Runtime App (Next.js - PM2)
 │   ├── .next\                            # Next.js build
 │   ├── public\
 │   │   └── forms\                        # Forms dinámicos
@@ -278,59 +278,56 @@ E:\BIZUITSites\clientX\
 │   ├── .env.local
 │   └── package.json
 │
-└── clientXBIZUITCustomFormsBackEnd\    # Backend API
-    ├── app\                              # FastAPI app
-    ├── .env.local
-    └── requirements.txt
+└── clientXBIZUITCustomFormsBackEnd\    # Backend API (.NET 9 - IIS Virtual App)
+    ├── BizuitCustomForms.WebApi.dll      # .NET WebAPI assembly
+    ├── appsettings.json                  # Configuration
+    ├── web.config                        # IIS configuration
+    └── wwwroot\                          # Static files
 ```
 
-### Paso 2: Configurar Backend API
+### Paso 2: Configurar Backend API (.NET 9)
 
-#### 2.1. Crear `.env.local`
+#### 2.1. Editar `appsettings.json`
 
-```bash
-# En: E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\.env.local
-
-# SQL Server - Main Database
-DB_SERVER=test.bizuit.com
-DB_DATABASE=clientXBizuitDashboard
-DB_USER=BIZUITclientX
-DB_PASSWORD={secure-password}
-
-# SQL Server - Persistence Store
-PERSISTENCE_DB_SERVER=test.bizuit.com
-PERSISTENCE_DB_DATABASE=clientXBizuitPersistenceStore
-PERSISTENCE_DB_USER=BIZUITclientX
-PERSISTENCE_DB_PASSWORD={secure-password}
-
-# Bizuit Dashboard API
-BIZUIT_DASHBOARD_API_URL=https://test.bizuit.com/clientXBizuitDashboardapi/api
-
-# Security
-JWT_SECRET_KEY={generate-with-openssl-rand-hex-32}
-ENCRYPTION_TOKEN_KEY={24-char-key-must-match-dashboard}
-
-# Admin Access
-ADMIN_ALLOWED_ROLES=Administrators,BIZUIT Admins,SuperAdmin,FormManager
-
-# API Configuration
-API_PORT=8002  # ⚠️ Unique port per environment!
-MAX_UPLOAD_SIZE_MB=50
-TEMP_UPLOAD_PATH=./temp-uploads
-
-# CORS
-CORS_ORIGINS=https://test.bizuit.com
+```json
+// En: E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\appsettings.json
+{
+  "ConnectionStrings": {
+    "DashboardDb": "Server=test.bizuit.com;Database=clientXBizuitDashboard;User Id=BIZUITclientX;Password={secure-password};TrustServerCertificate=True;",
+    "PersistenceDb": "Server=test.bizuit.com;Database=clientXBizuitPersistenceStore;User Id=BIZUITclientX;Password={secure-password};TrustServerCertificate=True;"
+  },
+  "BizuitSettings": {
+    "DashboardApiUrl": "https://test.bizuit.com/clientXBizuitDashboardapi/api",
+    "JwtSecretKey": "{generate-with-openssl-rand-hex-32}",
+    "EncryptionTokenKey": "{24-char-key-must-match-dashboard}",
+    "AdminAllowedRoles": "Administrators,BIZUIT Admins,SuperAdmin,FormManager",
+    "SessionTimeoutMinutes": 30,
+    "MaxUploadSizeMB": 50,
+    "TempUploadPath": "./temp-uploads"
+  },
+  "Cors": {
+    "AllowedOrigins": ["https://test.bizuit.com"]
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
 ```
 
 #### 2.2. Generar Secrets
 
 ```bash
-# JWT Secret (32 bytes hex)
+# JWT Secret (64 caracteres hex)
 openssl rand -hex 32
 
 # Encryption Key (24 caracteres, coordinar con Dashboard)
 # Debe ser el mismo que usa Dashboard para encriptar tokens
 ```
+
+⚠️ **IMPORTANTE:** En producción, usar Azure Key Vault o User Secrets para almacenar credenciales, NO `appsettings.json`.
 
 ### Paso 3: Configurar Runtime App
 
@@ -345,8 +342,9 @@ NEXT_PUBLIC_BIZUIT_DASHBOARD_API_URL=https://test.bizuit.com/clientXBizuitDashbo
 # Base path para IIS deployment
 NEXT_PUBLIC_BASE_PATH=/clientXBIZUITCustomForms
 
-# FastAPI backend URL (server-side)
-FASTAPI_URL=http://localhost:8002
+# Backend API URL (server-side, usado por Next.js API routes)
+# El backend .NET se accede vía IIS Virtual App, no puerto directo
+NEXT_PUBLIC_API_URL=https://test.bizuit.com/clientXBIZUITCustomFormsBackEnd
 
 # Timeouts
 NEXT_PUBLIC_BIZUIT_TIMEOUT=30000
@@ -368,7 +366,9 @@ npm install
 npm run build
 ```
 
-### Paso 4: Configurar PM2
+### Paso 4: Configurar PM2 (Solo Runtime App)
+
+⚠️ **NOTA:** El backend .NET NO usa PM2. Se ejecuta como IIS Virtual App (In-Process). Solo el runtime-app (Next.js) usa PM2.
 
 #### 4.1. PM2 Ecosystem File
 
@@ -385,30 +385,21 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3002
       }
-    },
-    {
-      name: 'clientX-backend',
-      cwd: 'E:\\BIZUITSites\\clientX\\clientXBIZUITCustomFormsBackEnd',
-      script: 'main.py',
-      interpreter: 'python',
-      env: {
-        PYTHONPATH: 'E:\\BIZUITSites\\clientX\\clientXBIZUITCustomFormsBackEnd'
-      }
     }
+    // Backend .NET no requiere PM2 - se ejecuta como IIS Virtual App
   ]
 };
 ```
 
-#### 4.2. Iniciar Servicios
+#### 4.2. Iniciar Runtime App
 
 ```bash
-# Start apps
+# Start runtime app
 pm2 start ecosystem.config.js
 
 # Verificar
 pm2 list
 pm2 logs clientX-runtime
-pm2 logs clientX-backend
 
 # Save PM2 config
 pm2 save
@@ -425,22 +416,26 @@ pm2 startup
 
 **Application Pool:** DefaultAppPool (.NET CLR Version: No Managed Code)
 
-#### 5.2. URL Rewrite Rules
+#### 5.2. Virtual Applications y URL Rewrite Rules
 
-**Para:** `/clientXBIZUITCustomForms/*`
+**Backend API - Virtual Application:**
+
+1. IIS Manager → test.bizuit.com → Add Application
+2. Alias: `clientXBIZUITCustomFormsBackEnd`
+3. Physical Path: `E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd`
+4. Application Pool: DefaultAppPool (No Managed Code)
+
+**Runtime App - URL Rewrite:**
 
 ```xml
 <!-- Web.config en E:\DevSites\test.bizuit.com -->
-<rule name="clientX-CustomForms-API" stopProcessing="true">
-  <match url="^clientXBIZUITCustomForms/api/(.*)$" />
-  <action type="Rewrite" url="http://localhost:8002/api/{R:1}" />
-</rule>
-
 <rule name="clientX-CustomForms-Runtime" stopProcessing="true">
   <match url="^clientXBIZUITCustomForms/(.*)$" />
   <action type="Rewrite" url="http://localhost:3002/{R:1}" />
 </rule>
 ```
+
+⚠️ **NOTA:** El backend .NET NO requiere URL Rewrite - es una Virtual Application directa en IIS.
 
 #### 5.3. Application Request Routing (ARR)
 
@@ -655,18 +650,31 @@ Este form **funciona en cualquier entorno** sin cambios.
 
 ## 📊 Monitoreo y Logs
 
-### Logs de PM2
+### Logs de PM2 (Runtime App)
 
 ```bash
 # Ver logs en tiempo real
 pm2 logs clientX-runtime
-pm2 logs clientX-backend
 
 # Ver últimas 100 líneas
 pm2 logs clientX-runtime --lines 100
 
 # Logs por fecha
 pm2 logs --timestamp
+```
+
+### Logs del Backend .NET
+
+**Ubicación:** Configurado en `appsettings.json` → Serilog
+
+```bash
+# Logs del backend (ejemplo)
+E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\logs\api-{date}.log
+```
+
+**Ver logs en tiempo real (PowerShell):**
+```powershell
+Get-Content -Path "E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\logs\api-*.log" -Tail 50 -Wait
 ```
 
 ### Logs de IIS
@@ -797,7 +805,7 @@ C:\inetpub\logs\LogFiles\W3SVC1\
    unzip -l example-form-deployment-1.0.8-abc1234.zip | grep form.js
    ```
 
-### PM2 Process crashed
+### Runtime App (PM2) crashed
 
 **Síntoma:** `pm2 list` muestra status `errored` o `stopped`
 
@@ -819,6 +827,29 @@ cat .env.local
 
 # 3. Build de Next.js completó correctamente
 ls -la .next/standalone/
+```
+
+### Backend .NET no responde
+
+**Síntoma:** HTTP 503 o 500 en requests al backend
+
+**Debug:**
+
+```bash
+# 1. Verificar IIS Virtual App existe
+# IIS Manager → test.bizuit.com → Applications → clientXBIZUITCustomFormsBackEnd
+
+# 2. Verificar Application Pool
+# Application Pools → DefaultAppPool → Status: Started
+
+# 3. Verificar logs de Serilog
+Get-Content -Path "E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\logs\api-*.log" -Tail 50
+
+# 4. Verificar web.config existe
+ls E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\web.config
+
+# 5. Reciclar Application Pool
+# IIS Manager → Application Pools → DefaultAppPool → Recycle
 ```
 
 ---
@@ -846,7 +877,8 @@ ls -la .next/standalone/
 - [ ] No hay errores en browser console
 - [ ] Form funciona con datos mock (si dev mode habilitado)
 - [ ] Integration con Dashboard funciona (con token real)
-- [ ] PM2 logs no muestran errores
+- [ ] PM2 logs (runtime) no muestran errores
+- [ ] Backend .NET logs (Serilog) no muestran errores
 - [ ] IIS logs no muestran errores 500
 
 ---
