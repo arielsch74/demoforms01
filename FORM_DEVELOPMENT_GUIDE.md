@@ -361,7 +361,7 @@ NEXT_PUBLIC_ALLOW_DEV_MODE=true  # ← Set to 'true' for development, 'false' fo
 NEXT_PUBLIC_BIZUIT_DASHBOARD_API_URL=/api/bizuit
 
 # Backend API (server-side only)
-FASTAPI_URL=http://127.0.0.1:8000
+BACKEND_API_URL=http://127.0.0.1:8000
 
 # Development credentials (used when NEXT_PUBLIC_ALLOW_DEV_MODE=true)
 DEV_USERNAME=your-dashboard-username

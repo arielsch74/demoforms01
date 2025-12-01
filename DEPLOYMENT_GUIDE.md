@@ -9,12 +9,12 @@ Pasos completos para deployar custom forms a entornos Bizuit BPM (clientX, clien
 ```
 test.bizuit.com/
 ├── clientXBIZUITCustomForms/
-│   ├── Runtime App (Next.js)   → Puerto 3001, PM2 + IIS Reverse Proxy
+│   ├── Runtime App (Next.js)   → Puerto 3001, Windows Service + IIS Reverse Proxy
 │   ├── Backend API (.NET 9)    → IIS Virtual App (In-Process)
 │   └── Forms Storage           → /public/forms/{form-name}/form.js
 │
 └── clientYBIZUITCustomForms/
-    ├── Runtime App (Next.js)   → Puerto 3002, PM2 + IIS Reverse Proxy
+    ├── Runtime App (Next.js)   → Puerto 3002, Windows Service + IIS Reverse Proxy
     ├── Backend API (.NET 9)    → IIS Virtual App (In-Process)
     └── Forms Storage           → /public/forms/{form-name}/form.js
 ```
@@ -267,7 +267,7 @@ CREATE DATABASE clientXBizuitPersistenceStore;
 ```bash
 # Windows Server
 E:\BIZUITSites\clientX\
-├── clientXBIZUITCustomForms\           # Runtime App (Next.js - PM2)
+├── clientXBIZUITCustomForms\           # Runtime App (Next.js - Windows Service)
 │   ├── .next\                            # Next.js build
 │   ├── public\
 │   │   └── forms\                        # Forms dinámicos
@@ -366,46 +366,48 @@ npm install
 npm run build
 ```
 
-### Paso 4: Configurar PM2 (Solo Runtime App)
+### Paso 4: Configurar Windows Service (Solo Runtime App)
 
-⚠️ **NOTA:** El backend .NET NO usa PM2. Se ejecuta como IIS Virtual App (In-Process). Solo el runtime-app (Next.js) usa PM2.
+⚠️ **NOTA:** El backend .NET NO requiere Windows Service. Se ejecuta como IIS Virtual App (In-Process). Solo el runtime-app (Next.js) usa Windows Service.
 
-#### 4.1. PM2 Ecosystem File
+#### 4.1. Crear Windows Service
 
-```javascript
-// ecosystem.config.js
-module.exports = {
-  apps: [
-    {
-      name: 'clientX-runtime',
-      cwd: 'E:\\BIZUITSites\\clientX\\clientXBIZUITCustomForms',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3002',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3002
-      }
-    }
-    // Backend .NET no requiere PM2 - se ejecuta como IIS Virtual App
-  ]
-};
+```powershell
+# Configuración
+$serviceName = "BizuitCustomForms-clientX-Runtime"
+$displayName = "BIZUIT Custom Forms Runtime (clientX)"
+$description = "Next.js runtime for BIZUIT Custom Forms - clientX tenant"
+$exePath = "E:\BIZUITSites\clientX\clientXBIZUITCustomForms\node.exe"
+$scriptPath = "E:\BIZUITSites\clientX\clientXBIZUITCustomForms\node_modules\next\dist\bin\next"
+$arguments = "start -p 3002"
+$workingDir = "E:\BIZUITSites\clientX\clientXBIZUITCustomForms"
+
+# Crear servicio
+New-Service -Name $serviceName `
+  -DisplayName $displayName `
+  -Description $description `
+  -BinaryPathName "$exePath $scriptPath $arguments" `
+  -StartupType Automatic `
+  -WorkingDirectory $workingDir
+
+# Iniciar servicio
+Start-Service -Name $serviceName
+
+# Verificar estado
+Get-Service -Name $serviceName
 ```
 
-#### 4.2. Iniciar Runtime App
+#### 4.2. Verificar Runtime App
 
-```bash
-# Start runtime app
-pm2 start ecosystem.config.js
+```powershell
+# Ver estado del servicio
+Get-Service -Name "BizuitCustomForms-clientX-Runtime"
 
-# Verificar
-pm2 list
-pm2 logs clientX-runtime
+# Verificar puerto está activo
+netstat -ano | findstr :3002
 
-# Save PM2 config
-pm2 save
-
-# Setup auto-startup (Windows)
-pm2 startup
+# Ver logs en Event Viewer
+Get-EventLog -LogName Application -Source "*Bizuit*" -Newest 20
 ```
 
 ### Paso 5: Configurar IIS
@@ -650,17 +652,17 @@ Este form **funciona en cualquier entorno** sin cambios.
 
 ## 📊 Monitoreo y Logs
 
-### Logs de PM2 (Runtime App)
+### Logs del Runtime App (Windows Service)
 
-```bash
-# Ver logs en tiempo real
-pm2 logs clientX-runtime
+```powershell
+# Ver logs del servicio en Event Viewer
+Get-EventLog -LogName Application -Source "*Bizuit*" -Newest 50
 
-# Ver últimas 100 líneas
-pm2 logs clientX-runtime --lines 100
+# Filtrar por errores
+Get-EventLog -LogName Application -Source "*Bizuit*" -EntryType Error -Newest 20
 
-# Logs por fecha
-pm2 logs --timestamp
+# Ver en tiempo real
+Get-EventLog -LogName Application -Source "*Bizuit*" -Newest 1 -After (Get-Date).AddMinutes(-5)
 ```
 
 ### Logs del Backend .NET
@@ -805,28 +807,31 @@ C:\inetpub\logs\LogFiles\W3SVC1\
    unzip -l example-form-deployment-1.0.8-abc1234.zip | grep form.js
    ```
 
-### Runtime App (PM2) crashed
+### Runtime App (Windows Service) crashed
 
-**Síntoma:** `pm2 list` muestra status `errored` o `stopped`
+**Síntoma:** Servicio muestra status `Stopped` o no responde
 
 **Debug:**
 
-```bash
-# Ver logs del crash
-pm2 logs clientX-runtime --err
+```powershell
+# Ver estado del servicio
+Get-Service -Name "BizuitCustomForms-clientX-Runtime"
 
-# Reiniciar
-pm2 restart clientX-runtime
+# Ver logs de errores
+Get-EventLog -LogName Application -Source "*Bizuit*" -EntryType Error -Newest 20
+
+# Reiniciar servicio
+Restart-Service -Name "BizuitCustomForms-clientX-Runtime"
 
 # Si falla persistentemente, verificar:
 # 1. Puerto no está en uso
 netstat -ano | findstr :3002
 
 # 2. .env.local existe y es válido
-cat .env.local
+Get-Content .env.local
 
 # 3. Build de Next.js completó correctamente
-ls -la .next/standalone/
+Get-ChildItem .next\standalone\ -Recurse
 ```
 
 ### Backend .NET no responde
@@ -877,7 +882,7 @@ ls E:\BIZUITSites\clientX\clientXBIZUITCustomFormsBackEnd\web.config
 - [ ] No hay errores en browser console
 - [ ] Form funciona con datos mock (si dev mode habilitado)
 - [ ] Integration con Dashboard funciona (con token real)
-- [ ] PM2 logs (runtime) no muestran errores
+- [ ] Windows Service logs (Event Viewer) no muestran errores
 - [ ] Backend .NET logs (Serilog) no muestran errores
 - [ ] IIS logs no muestran errores 500
 

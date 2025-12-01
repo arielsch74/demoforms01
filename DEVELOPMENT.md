@@ -497,11 +497,11 @@ npm run build
 test.bizuit.com/
 ├── clientXBIZUITCustomForms/      # Cliente: clientX
 │   ├── runtime-app (Next.js)       # Puerto 3001
-│   └── backend-api (FastAPI)       # Puerto 8000
+│   └── backend-api (.NET Backend)       # Puerto 8000
 │
 └── clientYBIZUITCustomForms/      # Cliente: clientY
     ├── runtime-app (Next.js)       # Puerto 3002
-    └── backend-api (FastAPI)       # Puerto 8001
+    └── backend-api (.NET Backend)       # Puerto 8001
 ```
 
 ### Deployment a un Entorno (ej: clientX)
@@ -625,8 +625,8 @@ NEXT_PUBLIC_BIZUIT_DASHBOARD_API_URL=https://test.bizuit.com/clientXBIZUITDashbo
 # Base path para IIS deployment
 NEXT_PUBLIC_BASE_PATH=/clientXBIZUITCustomForms
 
-# FastAPI backend URL (server-side only)
-FASTAPI_URL=http://localhost:8000
+# .NET Backend backend URL (server-side only)
+BACKEND_API_URL=http://localhost:8000
 
 # Timeouts
 NEXT_PUBLIC_BIZUIT_TIMEOUT=30000
@@ -636,7 +636,7 @@ NEXT_PUBLIC_BIZUIT_TOKEN_EXPIRATION_MINUTES=30
 NEXT_PUBLIC_ALLOW_DEV_MODE=false
 ```
 
-#### Backend API (FastAPI)
+#### Backend API (.NET Backend)
 
 **Archivo:** `custom-forms/backend-api/.env.local`
 

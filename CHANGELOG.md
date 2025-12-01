@@ -119,8 +119,8 @@ tail -n 5 dist/form.js  # Should see: export{X as default};
 ### Infrastructure
 
 **Database Integration**:
-- FastAPI backend endpoints for forms list and compiled code
-- SQL Server integration via `database.py`
+- .NET Web API backend endpoints for forms list and compiled code
+- SQL Server integration via Dapper
 - Next.js API proxy routes
 
 **Deployment Pipeline**:
