@@ -188,8 +188,19 @@ stages:
                     echo "  📝 Building: $form_name"
                     cd "$form_name"
 
+                    # Install form-specific dependencies (e.g., fullcalendar)
+                    if [ -f "package.json" ]; then
+                      echo "  📦 Installing dependencies for $form_name..."
+                      npm install
+                    fi
+
                     if npm run | grep -q "build"; then
                       npm run build
+
+                      if [ $? -ne 0 ]; then
+                        echo "  ❌ Build failed: $form_name"
+                        exit 1
+                      fi
 
                       if [ -f "dist/form.js" ]; then
                         echo "  ✅ Built successfully: $form_name ($(wc -c < dist/form.js) bytes)"
