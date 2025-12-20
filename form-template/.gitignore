@@ -3,6 +3,11 @@ dev-credentials.js
 
 # Build output
 dist/
+
+# Development build artifacts (fat bundles) - also in dist/ but explicit
+dist/form.dev.js
+dist/form.dev.js.map
+
 node_modules/
 
 # Dependencies

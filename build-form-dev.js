@@ -33,12 +33,40 @@ async function buildForm() {
         build.onResolve({ filter: /^react-dom$/ }, args => ({ path: args.path, namespace: 'global-react' }))
         build.onResolve({ filter: /^react\/jsx-runtime$/ }, args => ({ path: args.path, namespace: 'global-react' }))
 
-        build.onLoad({ filter: /.*/, namespace: 'global-react' }, args => ({
-          contents: args.path === 'react' ? 'module.exports = window.React'
-            : args.path === 'react-dom' ? 'module.exports = window.ReactDOM'
-            : 'module.exports = { jsx: window.React.createElement, jsxs: window.React.createElement, Fragment: window.React.Fragment }',
-          loader: 'js',
-        }))
+        build.onLoad({ filter: /.*/, namespace: 'global-react' }, args => {
+          if (args.path === 'react') {
+            return { contents: 'module.exports = window.React', loader: 'js' };
+          }
+          if (args.path === 'react-dom') {
+            return { contents: 'module.exports = window.ReactDOM', loader: 'js' };
+          }
+          // jsx-runtime needs wrapper functions that handle the key argument correctly
+          // jsx/jsxs signature: (type, props, key) where children is inside props
+          // createElement signature: (type, props, ...children)
+          return {
+            contents: `
+              function createElementWithKey(type, props, key) {
+                if (key !== undefined && props) {
+                  props = Object.assign({}, props, { key: key });
+                }
+                var children = props && props.children;
+                delete props.children;
+                if (Array.isArray(children)) {
+                  return window.React.createElement.apply(null, [type, props].concat(children));
+                } else if (children !== undefined) {
+                  return window.React.createElement(type, props, children);
+                }
+                return window.React.createElement(type, props);
+              }
+              module.exports = {
+                jsx: createElementWithKey,
+                jsxs: createElementWithKey,
+                Fragment: window.React.Fragment
+              };
+            `,
+            loader: 'js',
+          };
+        })
       },
     }
 

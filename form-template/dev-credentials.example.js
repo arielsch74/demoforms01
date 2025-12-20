@@ -1,12 +1,21 @@
 /**
- * Development Credentials for Fat Bundle Testing
+ * Development Credentials - EXAMPLE FILE
  *
- * IMPORTANT: This file is for LOCAL testing only
- * Copy to dev-credentials.js and update with your actual Dashboard credentials
+ * Copy this file to: dev-credentials.js
+ * Then update with your actual credentials
+ *
+ * IMPORTANT: dev-credentials.js is gitignored and will NOT be committed
  */
 
 export const DEV_CREDENTIALS = {
   username: 'your-username',
   password: 'your-password',
-  apiUrl: 'https://test.bizuit.com/yourTenantBizuitDashboardapi/api'
+  apiUrl: 'https://test.bizuit.com/yourTenantBizuitDashboardapi/api/',
+
+  // Plugin API URL (for backend plugins)
+  // Local development: Point directly to your local .NET backend
+  pluginApiUrl: 'http://localhost:8000/api/plugins/yourplugin'
+
+  // Production URL example (when deployed):
+  // pluginApiUrl: 'https://test.bizuit.com/yourTenantBIZUITCustomFormsBackEnd/api/plugins/yourplugin'
 };

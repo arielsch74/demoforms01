@@ -40,3 +40,67 @@ open http://localhost:8080/dev.html
 ⚠️ **Important:** The form needs `dev-credentials.js` for authentication during local testing.
 
 For detailed instructions, see [FORM_DEVELOPMENT_GUIDE.md](../FORM_DEVELOPMENT_GUIDE.md).
+
+---
+
+## Using Plugin API (Backend Plugins)
+
+If your form needs to call backend plugin endpoints, configure `pluginApiUrl` in your credentials.
+
+### Local Development (Recommended)
+
+When running the .NET backend locally on port 8000:
+
+```javascript
+// dev-credentials.js
+export const DEV_CREDENTIALS = {
+  username: 'your-username',
+  password: 'your-password',
+  apiUrl: 'https://test.bizuit.com/yourTenantBizuitDashboardapi/api/',
+  // Point directly to local .NET backend
+  pluginApiUrl: 'http://localhost:8000/api/plugins/yourplugin'
+};
+```
+
+Then run:
+
+```bash
+# Terminal 1: Start .NET backend (from backend-api-dotnet directory)
+dotnet run  # Runs on port 8000
+
+# Terminal 2: Build and serve the form
+npm run build:dev
+npx http-server . -p 8080 --cors
+
+# Terminal 3: Open browser
+open http://localhost:8080/dev.html
+```
+
+### Production
+
+In production, the form receives `pluginApiUrl` from the Dashboard/FormLoader, which points to the deployed backend:
+
+```
+https://yourserver.com/yourTenantBIZUITCustomFormsBackEnd/api/plugins/yourplugin
+```
+
+### Using pluginApiUrl in Your Form
+
+```typescript
+export default function MyForm({ dashboardParams }) {
+  // Get plugin API URL (works in both dev and production)
+  const pluginApiUrl = dashboardParams.devPluginApiUrl || dashboardParams.pluginApiUrl;
+
+  const fetchData = async () => {
+    const response = await fetch(`${pluginApiUrl}/my-endpoint`, {
+      headers: {
+        'Authorization': `Bearer ${dashboardParams.token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  };
+
+  // ... rest of form
+}
+```
