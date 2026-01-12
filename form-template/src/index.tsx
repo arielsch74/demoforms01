@@ -200,7 +200,7 @@ export default function FormTemplate({ dashboardParams }: FormProps) {
                     </svg>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Form Template</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">formtemplate {new Date().toLocaleString()}</h1>
                     <p className="text-sm text-gray-600 mt-1">Professional form template for BIZUIT BPM</p>
                   </div>
                 </div>
